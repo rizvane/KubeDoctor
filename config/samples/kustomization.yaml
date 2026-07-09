@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- diagnostics_v1alpha1_diagnosticreport.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

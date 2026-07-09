@@ -1,0 +1,12 @@
+apiVersion: diagnostics.rizvane.com/v1alpha1
+kind: DiagnosticReport
+metadata:
+  labels:
+    app.kubernetes.io/name: diagnosticreport
+    app.kubernetes.io/instance: diagnosticreport-sample
+    app.kubernetes.io/part-of: app
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: app
+  name: diagnosticreport-sample
+spec:
+  # TODO(user): Add fields here

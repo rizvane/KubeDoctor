@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeDoctor Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        h1 { text-align: center; color: #2c3e50; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 20px; border-left: 5px solid #e74c3c; }
+        .card.completed { border-left-color: #27ae60; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .card-title { font-size: 1.2em; font-weight: bold; color: #2980b9; }
+        .badge { background: #34495e; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.9em; }
+        .reason { font-weight: bold; color: #e74c3c; margin-top: 10px; }
+        .recommendation { background: #e8f8f5; border-left: 4px solid #1abc9c; padding: 10px; margin-top: 15px; border-radius: 4px; font-weight: bold; color: #16a085; }
+        .logs { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; overflow-x: auto; margin-top: 15px; max-height: 300px; overflow-y: auto; }
+        .no-data { text-align: center; color: #7f8c8d; font-size: 1.2em; margin-top: 50px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🩺 KubeDoctor Dashboard</h1>
+        <p style="text-align: center; color: #7f8c8d;">Diagnostics & Self-Healing Reports</p>
+
+        {{if not .}}
+            <div class="no-data">No Diagnostic Reports found. Your cluster is healthy! 🎉</div>
+        {{else}}
+            {{range .}}
+                <div class="card {{if eq .Phase "Completed"}}completed{{end}}">
+                    <div class="card-header">
+                        <div class="card-title">Pod: {{.PodName}} <span style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">({{.Namespace}})</span></div>
+                        <div>
+                            <span class="badge">{{.Phase}}</span>
+                        </div>
+                    </div>
+                    <div><strong>Container:</strong> {{.ContainerName}}</div>
+                    <div class="reason">Reason: {{.Reason}}</div>
+
+                    {{if .Recommendation}}
+                        <div class="recommendation">💡 Recommendation:<br>{{.Recommendation}}</div>
+                    {{end}}
+
+                    {{if .Logs}}
+                        <div style="margin-top: 15px; font-weight: bold;">Captured Logs:</div>
+                        <div class="logs">{{.Logs}}</div>
+                    {{end}}
+                    <div style="margin-top: 10px; font-size: 0.8em; color: #95a5a6; text-align: right;">Created: {{.CreationTime}}</div>
+                </div>
+            {{end}}
+        {{end}}
+    </div>
+</body>
+</html>

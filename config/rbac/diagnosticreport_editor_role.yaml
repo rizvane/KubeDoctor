@@ -1,0 +1,31 @@
+# permissions for end users to edit diagnosticreports.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: diagnosticreport-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: app
+    app.kubernetes.io/part-of: app
+    app.kubernetes.io/managed-by: kustomize
+  name: diagnosticreport-editor-role
+rules:
+- apiGroups:
+  - diagnostics.rizvane.com
+  resources:
+  - diagnosticreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - diagnostics.rizvane.com
+  resources:
+  - diagnosticreports/status
+  verbs:
+  - get
