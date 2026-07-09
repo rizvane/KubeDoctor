@@ -118,9 +118,10 @@ func handleDashboard(w http.ResponseWriter, r *http.Request, client dynamic.Inte
 		return
 	}
 
-	lang := os.Getenv("LANGUAGE")
+	lang := getEnvOrDefault("LANGUAGE", "en")
 	var t Translation
-	if lang == "fr" || lang == "FR" {
+	switch lang {
+	case "fr", "FR":
 		t = Translation{
 			Subtitle:     "Rapports de Diagnostic et d'Auto-Guérison",
 			NoData:       "Aucun rapport de diagnostic trouvé. Votre cluster est en parfaite santé ! 🎉",
@@ -130,7 +131,27 @@ func handleDashboard(w http.ResponseWriter, r *http.Request, client dynamic.Inte
 			Created:      "Créé le",
 			CapturedLogs: "Logs capturés :",
 		}
-	} else {
+	case "es", "ES":
+		t = Translation{
+			Subtitle:     "Informes de Diagnóstico y Autocuración",
+			NoData:       "No se encontraron informes. ¡Su clúster está saludable! 🎉",
+			Pod:          "Pod",
+			Container:    "Contenedor",
+			Reason:       "Razón",
+			Created:      "Creado",
+			CapturedLogs: "Registros capturados:",
+		}
+	case "zh", "ZH":
+		t = Translation{
+			Subtitle:     "诊断和自愈报告",
+			NoData:       "未找到诊断报告。您的集群很健康！🎉",
+			Pod:          "Pod",
+			Container:    "容器",
+			Reason:       "原因",
+			Created:      "创建于",
+			CapturedLogs: "捕获的日志：",
+		}
+	default:
 		t = Translation{
 			Subtitle:     "Diagnostics & Self-Healing Reports",
 			NoData:       "No Diagnostic Reports found. Your cluster is healthy! 🎉",
