@@ -1,129 +1,129 @@
 # 🩺 KubeDoctor
 
-**KubeDoctor** is a production-grade Kubernetes/OpenShift Self-Healing and Diagnostic Operator built in Go using Kubebuilder/Operator SDK.
+**KubeDoctor** est un Opérateur de Self-Healing et de Diagnostic pour Kubernetes et OpenShift, conçu pour la production et développé en Go avec Kubebuilder / Operator SDK.
 
-When things go wrong in a Kubernetes cluster, analyzing logs and identifying the root cause can be tedious. KubeDoctor automates this process: it acts as a silent architect, monitoring your cluster for failing Pods, fetching logs automatically, and diagnosing the root cause. It provides actionable solutions, including **corrective YAML patches**, to resolve the issue.
+Lorsque des problèmes surviennent dans un cluster Kubernetes, analyser les logs et identifier la cause première peut être fastidieux. KubeDoctor automatise ce processus : il agit comme un architecte silencieux, surveillant votre cluster pour détecter les Pods en échec, récupérant automatiquement les logs et diagnostiquant la cause du problème. Il propose des solutions concrètes, y compris des **correctifs sous forme de patchs YAML**, pour résoudre l'incident.
 
-It also integrates seamlessly with OpenAI (or other LLMs) as a fallback for analyzing unclassified errors.
+Il s'intègre également parfaitement avec OpenAI (ou d'autres LLM) en tant que solution de secours pour analyser les erreurs non classifiées.
 
 ---
 
 ## 🏗️ Architecture
 
-1. **The Controller (Manager)**
-   - Monitors `corev1.Pod` events across the cluster.
-   - Triggers when it detects specific failure states: `CrashLoopBackOff`, `OOMKilled`, `ImagePullBackOff`, `CreateContainerConfigError`, or non-zero exit codes.
-2. **Log Retrieval & Diagnostic Analysis**
-   - Retrieves the last 50 lines of logs using a native `kubernetes.Clientset` stream.
-   - Passes the logs to the **Intelligent Remediation Engine**.
-   - Generates a Custom Resource Definition (`DiagnosticReport`) holding the pod information, captured logs, failure reason, and a specific recommendation / YAML fix.
-3. **Intelligent Remediation Engine**
-   - **Local Heuristics:** Matches standard errors (OOMKilled, Image Pull issues) and generates corrective YAML patches (e.g., memory limits modifications).
-   - **AI Fallback:** If `OPENAI_API_KEY` is present, it scrubs sensitive data (IPs, Emails, Tokens) using an Anonymizer and requests an AI-generated fix.
-4. **Dashboard (GKE/Kubernetes Native)**
-   - A lightweight Go-based UI that renders `DiagnosticReport` objects directly, perfect for developers tracking issues on GKE prior to an OpenShift integration.
+1. **Le Contrôleur (Manager)**
+   - Surveille les événements des `corev1.Pod` à travers le cluster.
+   - Se déclenche lorsqu'il détecte des états d'échec spécifiques : `CrashLoopBackOff`, `OOMKilled`, `ImagePullBackOff`, `CreateContainerConfigError`, ou des codes de sortie non nuls.
+2. **Récupération des Logs & Analyse Diagnostique**
+   - Récupère les 50 dernières lignes de logs en utilisant un flux (stream) natif `kubernetes.Clientset`.
+   - Transmet les logs au **Moteur de Remédiation Intelligent**.
+   - Génère une Ressource Personnalisée (CRD `DiagnosticReport`) contenant les informations du Pod, les logs capturés, la raison de l'échec, et une recommandation spécifique / correctif YAML.
+3. **Moteur de Remédiation Intelligent**
+   - **Heuristiques Locales :** Fait correspondre les erreurs standards (OOMKilled, problèmes de Pull d'image) et génère des correctifs YAML (ex: modification des limites de mémoire).
+   - **Fallback IA (Secours) :** Si la variable `OPENAI_API_KEY` est présente, le moteur nettoie les données sensibles (IPs, Emails, Tokens) via un Anonymiseur et demande une solution générée par l'IA.
+4. **Dashboard (GKE / Natif Kubernetes)**
+   - Une interface utilisateur légère codée en Go qui affiche directement les objets `DiagnosticReport`, idéale pour les développeurs souhaitant suivre les problèmes sur GKE avant une éventuelle migration vers OpenShift.
 
 ---
 
-## 🚀 Quick Start / Setup Instructions
+## 🚀 Démarrage Rapide / Instructions d'Installation
 
-### 1. Prerequisites
-- **Kubernetes Cluster** (e.g., GKE, Minikube, Kind)
-- **kubectl** configured to communicate with your cluster.
-- **Go 1.21+** installed locally.
+### 1. Prérequis
+- **Un Cluster Kubernetes** (ex: GKE, Minikube, Kind)
+- **kubectl** configuré pour communiquer avec votre cluster.
+- **Go 1.21+** installé localement.
 - **Operator SDK** (v1.34+)
 
-### 2. Install the Custom Resource Definitions (CRDs)
-Apply the `DiagnosticReport` CRD to your cluster:
+### 2. Installer les CRD (Custom Resource Definitions)
+Appliquez la CRD `DiagnosticReport` sur votre cluster :
 
 ```bash
 make manifests
 make install
 ```
 
-*(You should see `customresourcedefinition.apiextensions.k8s.io/diagnosticreports.diagnostics.rizvane.com created`)*
+*(Vous devriez voir le message `customresourcedefinition.apiextensions.k8s.io/diagnosticreports.diagnostics.rizvane.com created`)*
 
-### 3. Run the Operator Locally
-You can run the controller locally (outside the cluster) for testing. It will use your current `~/.kube/config`.
+### 3. Lancer l'Opérateur Localement
+Vous pouvez lancer le contrôleur localement (en dehors du cluster) pour effectuer des tests. Il utilisera votre configuration `~/.kube/config` actuelle.
 
 ```bash
-# Optional: Set the OpenAI Key for AI-driven fallback recommendations
-export OPENAI_API_KEY="sk-your-key..."
+# Optionnel : Configurer la clé OpenAI pour les recommandations de secours gérées par l'IA
+export OPENAI_API_KEY="sk-votre-cle..."
 
 make run
 ```
 
-### 4. Deploying to the Cluster
-To deploy the operator as a Pod inside your cluster:
+### 4. Déployer sur le Cluster
+Pour déployer l'opérateur en tant que Pod à l'intérieur de votre cluster :
 
 ```bash
-# Build the Docker image
-make docker-build docker-push IMG=<some-registry>/kubedoctor:v0.1.0
+# Construire l'image Docker
+make docker-build docker-push IMG=<votre-registre>/kubedoctor:v0.1.0
 
-# Deploy the operator to the cluster
-make deploy IMG=<some-registry>/kubedoctor:v0.1.0
+# Déployer l'opérateur sur le cluster
+make deploy IMG=<votre-registre>/kubedoctor:v0.1.0
 ```
 
 ---
 
-## 📊 The KubeDoctor Dashboard
+## 📊 Le Dashboard KubeDoctor
 
-KubeDoctor comes with a portable, lightweight web dashboard designed specifically for native Kubernetes (GKE).
+KubeDoctor est fourni avec un tableau de bord web léger et portable, conçu spécifiquement pour du Kubernetes natif (comme GKE).
 
-### Run the Dashboard Locally
-Make sure you are authenticated to your cluster (`KUBECONFIG`), then run:
+### Lancer le Dashboard Localement
+Assurez-vous d'être authentifié sur votre cluster (`KUBECONFIG`), puis lancez :
 
 ```bash
 go build -o bin/dashboard dashboard/main.go
 ./bin/dashboard
 ```
 
-Access the dashboard at `http://localhost:8082`.
+Accédez au tableau de bord sur `http://localhost:8082`.
 
-### Deploying the Dashboard on Kubernetes
-You can containerize the `dashboard/main.go` file and deploy it behind a standard Kubernetes `Service` (NodePort/LoadBalancer) or `Ingress` to give your developers a real-time view of all cluster faults.
+### Déployer le Dashboard sur Kubernetes
+Vous pouvez conteneuriser le fichier `dashboard/main.go` et le déployer derrière un `Service` Kubernetes standard (NodePort/LoadBalancer) ou une `Ingress` pour offrir à vos développeurs une vue en temps réel de tous les incidents du cluster.
 
 ---
 
-## 🧠 Recommendation Engine Details
+## 🧠 Détails du Moteur de Recommandation
 
-### Standard Debugging (No LLM Required)
-The core of KubeDoctor does not require an LLM. It features a robust heuristic engine. Example fixes include:
+### Débogage Standard (Sans LLM)
+Le cœur de KubeDoctor ne nécessite pas de LLM. Il est doté d'un moteur heuristique robuste. Voici quelques exemples de corrections automatiques :
 
-* **OOMKilled (Exit Code 137)**
-  * *Diagnosis:* Container exceeded memory limit.
-  * *Patch:* Recommends a YAML snippet adjusting `resources.limits.memory` and `resources.requests.memory`.
+* **OOMKilled (Code de Sortie 137)**
+  * *Diagnostic :* Le conteneur a dépassé sa limite de mémoire.
+  * *Patch :* Recommande un extrait YAML pour ajuster `resources.limits.memory` et `resources.requests.memory`.
 * **ImagePullBackOff**
-  * *Diagnosis:* Docker image not found or access denied.
-  * *Patch:* Recommends adding `imagePullSecrets` to the Pod Spec.
-* **Connection Refused**
-  * *Diagnosis:* Networking failure.
-  * *Patch:* Advises checking Service definitions, ports, and NetworkPolicies.
-* **Missing ConfigMaps/Secrets (CreateContainerConfigError)**
-  * *Diagnosis:* Missing referenced configurations.
-  * *Patch:* Reminds you to verify `volumeMounts` and Secret presence.
+  * *Diagnostic :* L'image Docker est introuvable ou l'accès est refusé.
+  * *Patch :* Recommande l'ajout de `imagePullSecrets` à la spécification du Pod.
+* **Connection Refused (Connexion Refusée)**
+  * *Diagnostic :* Échec réseau.
+  * *Patch :* Conseille de vérifier les définitions de Service, les ports, et les NetworkPolicies.
+* **ConfigMaps/Secrets Manquants (CreateContainerConfigError)**
+  * *Diagnostic :* Configurations référencées manquantes.
+  * *Patch :* Rappelle de vérifier les `volumeMounts` et la présence du Secret.
 
-### AI Debugging (Fallback)
-If an unknown application crash occurs, the AI engine takes over.
-* Set the `OPENAI_API_KEY` environment variable on the Operator Pod.
-* **Security First:** The operator scrubs IP addresses, email addresses, and `Bearer <token>` strings from logs before transmission.
+### Débogage IA (Fallback / Secours)
+Si l'application plante pour une raison inconnue, le moteur d'IA prend le relais.
+* Configurez la variable d'environnement `OPENAI_API_KEY` sur le Pod de l'opérateur.
+* **La Sécurité Avant Tout :** L'opérateur supprime les adresses IP, les adresses email et les chaînes `Bearer <token>` des logs avant toute transmission à l'API externe.
 
 ---
 
-## 🛠️ Generating the OLM Bundle (OperatorHub)
+## 🛠️ Génération du Bundle OLM (OperatorHub)
 
-For OpenShift and OperatorHub integrations, KubeDoctor is configured to generate an Operator Lifecycle Manager (OLM) bundle.
+Pour les intégrations avec OpenShift et OperatorHub, KubeDoctor est configuré pour générer un bundle OLM (Operator Lifecycle Manager).
 
 ```bash
 make bundle
 ```
-This generates the CSV (ClusterServiceVersion) in `bundle/manifests/app.clusterserviceversion.yaml`, making KubeDoctor production-ready and distributable on enterprise catalogs.
+Cela génère le CSV (ClusterServiceVersion) dans `bundle/manifests/app.clusterserviceversion.yaml`, rendant KubeDoctor prêt pour la production et distribuable sur des catalogues d'entreprise.
 
 ---
 
-## 🛡️ RBAC Permissions
-The operator automatically requests the following permissions via Kubebuilder tags:
+## 🛡️ Permissions RBAC
+L'opérateur demande automatiquement les permissions suivantes via les tags Kubebuilder :
 - `pods` (get, list, watch)
-- `pods/log` (get) - *Crucial for fetching container logs dynamically.*
+- `pods/log` (get) - *Crucial pour récupérer dynamiquement les logs des conteneurs.*
 - `diagnosticreports` (get, list, watch, create, update, patch, delete)
 - `diagnosticreports/status` (get, update, patch)
