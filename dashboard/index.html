@@ -28,31 +28,31 @@
             <img src="/assets/logo.jpeg" alt="KubeDoctor Logo" style="max-width: 300px; height: auto; border-radius: 8px;">
         </div>
         <h1>{{.Config.Title}}</h1>
-        <p style="text-align: center; color: #7f8c8d; font-size: 1.2em;">Diagnostics & Self-Healing Reports</p>
+        <p style="text-align: center; color: #7f8c8d; font-size: 1.2em;">{{.T.Subtitle}}</p>
 
         {{if not .Reports}}
-            <div class="no-data">No Diagnostic Reports found. Your cluster is healthy! 🎉</div>
+            <div class="no-data">{{.T.NoData}}</div>
         {{else}}
             {{range .Reports}}
                 <div class="card {{if eq .Phase "Completed"}}completed{{end}}">
                     <div class="card-header">
-                        <div class="card-title">Pod: {{.PodName}} <span style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">({{.Namespace}})</span></div>
+                        <div class="card-title">{{$.T.Pod}}: {{.PodName}} <span style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">({{.Namespace}})</span></div>
                         <div>
                             <span class="badge">{{.Phase}}</span>
                         </div>
                     </div>
-                    <div><strong>Container:</strong> {{.ContainerName}}</div>
-                    <div class="reason">Reason: {{.Reason}}</div>
+                    <div><strong>{{$.T.Container}}:</strong> {{.ContainerName}}</div>
+                    <div class="reason">{{$.T.Reason}}: {{.Reason}}</div>
 
                     {{if .Recommendation}}
-                        <div class="recommendation">💡 Recommendation:<br>{{.Recommendation}}</div>
+                        <div class="recommendation">{{.Recommendation}}</div>
                     {{end}}
 
                     {{if .Logs}}
-                        <div style="margin-top: 15px; font-weight: bold;">Captured Logs:</div>
+                        <div style="margin-top: 15px; font-weight: bold;">{{$.T.CapturedLogs}}</div>
                         <div class="logs">{{.Logs}}</div>
                     {{end}}
-                    <div style="margin-top: 10px; font-size: 0.8em; color: #95a5a6; text-align: right;">Created: {{.CreationTime}}</div>
+                    <div style="margin-top: 10px; font-size: 0.8em; color: #95a5a6; text-align: right;">{{$.T.Created}}: {{.CreationTime}}</div>
                 </div>
             {{end}}
         {{end}}
