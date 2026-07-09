@@ -32,30 +32,113 @@ func GenerateRecommendation(logs string, reason string) string {
 	lowerLogs := strings.ToLower(logs)
 	lowerReason := strings.ToLower(reason)
 
-	// Basic heuristic engine
+	// Advanced heuristic engine with YAML patch proposals
 	if strings.Contains(lowerLogs, "exit code 137") || strings.Contains(lowerReason, "oomkilled") {
-		return "OOMKilled detected. Recommendation: Increase the memory limits and requests for this container in its Deployment/Pod configuration."
+		return `OOMKilled detected. The container exceeded its memory limit.
+Recommendation: Increase the memory limit and request for this container in its Deployment.
+
+💡 Corrective YAML Patch (Adjust limits accordingly):
+---
+resources:
+  requests:
+    memory: "512Mi" # Increase from current
+  limits:
+    memory: "1Gi"   # Increase from current
+`
 	}
-	if strings.Contains(lowerLogs, "connection refused") {
-		return "Connection refused. Recommendation: Check if the target service is running, listening on the correct port, and accessible from this pod (NetworkPolicies)."
-	}
-	if strings.Contains(lowerLogs, "no such file or directory") {
-		return "File not found. Recommendation: Verify volume mounts, init containers, or the container image contents."
-	}
-	if strings.Contains(lowerReason, "crashloopbackoff") {
-		return "CrashLoopBackOff detected. Recommendation: Review the logs above to identify why the application failed to start or crashed shortly after starting."
-	}
+
 	if strings.Contains(lowerReason, "imagepullbackoff") || strings.Contains(lowerReason, "errimagepull") {
-		return "Image pull error. Recommendation: Verify that the image repository/tag exists, the image name is spelled correctly, and the node has the correct ImagePullSecrets to access the registry."
+		return `ImagePullBackOff detected. Kubernetes cannot pull the container image.
+Recommendation:
+1. Verify that the image name and tag are correct.
+2. Ensure the image repository is accessible.
+3. If the registry is private, ensure imagePullSecrets are configured.
+
+💡 Corrective YAML Patch (If using a private registry):
+---
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: my-registry-secret
+`
+	}
+
+	if strings.Contains(lowerLogs, "connection refused") {
+		return `Connection refused detected. The application is trying to communicate with a service that is unreachable.
+Recommendation:
+1. Check if the target Service is running and has endpoints (kubectl get ep).
+2. Ensure the port numbers match between the Service and the Pod.
+3. Verify NetworkPolicies are not blocking traffic.
+
+💡 Corrective YAML Example (Service & NetworkPolicy checks):
+---
+# Ensure your service targets the correct container port
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080 # This must match your container's listening port
+`
+	}
+
+	if strings.Contains(lowerLogs, "no such file or directory") || strings.Contains(lowerLogs, "not found") {
+		return `File or Directory not found detected.
+Recommendation: Verify your volume mounts, ConfigMaps, or Secrets. If the file is expected to be inside the image, verify the Dockerfile build process.
+
+💡 Corrective YAML Patch (Mounting a missing ConfigMap):
+---
+spec:
+  template:
+    spec:
+      containers:
+      - name: my-app
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: my-configmap
+`
+	}
+
+	if strings.Contains(lowerReason, "createcontainerconfigerror") {
+		return `CreateContainerConfigError detected. The Pod is failing to start because a referenced Secret or ConfigMap is missing.
+Recommendation: Ensure the referenced ConfigMap or Secret exists in the same namespace.
+
+💡 Command to check missing resources:
+kubectl get configmap,secret -n <namespace>
+`
+	}
+
+	if strings.Contains(lowerReason, "crashloopbackoff") {
+		return `CrashLoopBackOff detected. The application starts but crashes repeatedly.
+Recommendation:
+1. Check the logs above for application-specific panic/error stack traces.
+2. Ensure the liveness probe is not failing too quickly.
+3. Verify environment variables are correct.
+
+💡 Corrective YAML Patch (Adjusting Liveness Probes):
+---
+spec:
+  template:
+    spec:
+      containers:
+      - name: my-app
+        livenessProbe:
+          initialDelaySeconds: 30 # Give the app more time to start
+          periodSeconds: 10
+`
 	}
 
 	// Unhandled error, attempt to use LLM if configured
 	llmRecommendation := askLLMForRecommendation(logs, reason)
 	if llmRecommendation != "" {
-		return fmt.Sprintf("LLM Analysis: %s", llmRecommendation)
+		return fmt.Sprintf("AI Diagnostic Analysis:\n%s\n\n(Generated via LLM)", llmRecommendation)
 	}
 
-	return "No specific recommendation available. Consider sending these logs to a more advanced analysis tool."
+	return "No specific automated recommendation available. Please analyze the provided logs manually or configure OPENAI_API_KEY for AI-driven insights."
 }
 
 // askLLMForRecommendation sends anonymized logs to an LLM for analysis if OPENAI_API_KEY is set.
@@ -68,15 +151,15 @@ func askLLMForRecommendation(logs string, reason string) string {
 	// Anonymize logs before sending them to the LLM to prevent leaking sensitive data
 	anonymizedLogs := anonymizeLogs(logs)
 
-	prompt := fmt.Sprintf("Analyze the following Kubernetes error logs and provide a brief recommendation on how to fix it.\nReason: %s\nLogs:\n%s", reason, anonymizedLogs)
+	prompt := fmt.Sprintf("Act as an expert Kubernetes architect. Analyze the following Kubernetes error logs and provide a detailed recommendation on how to fix it, including a specific Kubernetes YAML patch example if applicable.\nReason: %s\nLogs:\n%s", reason, anonymizedLogs)
 
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"model": "gpt-4",
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are an expert Kubernetes architect. Provide concise, actionable advice for fixing cluster issues based on logs."},
+			{"role": "system", "content": "You are a Kubernetes expert. Provide concise, actionable advice for fixing cluster issues based on logs. Provide correct YAML patches if appropriate."},
 			{"role": "user", "content": prompt},
 		},
-		"max_tokens": 150,
+		"max_tokens": 300,
 	})
 	if err != nil {
 		return ""
