@@ -41,6 +41,17 @@ type DashboardConfig struct {
 	RefreshRate string
 }
 
+// Translation holds localized strings for the UI
+type Translation struct {
+	Subtitle     string
+	NoData       string
+	Pod          string
+	Container    string
+	Reason       string
+	Created      string
+	CapturedLogs string
+}
+
 func main() {
 	config, err := getKubeConfig()
 	if err != nil {
@@ -107,6 +118,30 @@ func handleDashboard(w http.ResponseWriter, r *http.Request, client dynamic.Inte
 		return
 	}
 
+	lang := os.Getenv("LANGUAGE")
+	var t Translation
+	if lang == "fr" || lang == "FR" {
+		t = Translation{
+			Subtitle:     "Rapports de Diagnostic et d'Auto-Guérison",
+			NoData:       "Aucun rapport de diagnostic trouvé. Votre cluster est en parfaite santé ! 🎉",
+			Pod:          "Pod",
+			Container:    "Conteneur",
+			Reason:       "Raison",
+			Created:      "Créé le",
+			CapturedLogs: "Logs capturés :",
+		}
+	} else {
+		t = Translation{
+			Subtitle:     "Diagnostics & Self-Healing Reports",
+			NoData:       "No Diagnostic Reports found. Your cluster is healthy! 🎉",
+			Pod:          "Pod",
+			Container:    "Container",
+			Reason:       "Reason",
+			Created:      "Created",
+			CapturedLogs: "Captured Logs:",
+		}
+	}
+
 	uiConfig := DashboardConfig{
 		Title:       getEnvOrDefault("DASHBOARD_TITLE", "KubeDoctor Dashboard"),
 		RefreshRate: getEnvOrDefault("DASHBOARD_REFRESH_RATE_SECONDS", "30"),
@@ -115,9 +150,11 @@ func handleDashboard(w http.ResponseWriter, r *http.Request, client dynamic.Inte
 	data := struct {
 		Config  DashboardConfig
 		Reports []Report
+		T       Translation
 	}{
 		Config:  uiConfig,
 		Reports: reports,
+		T:       t,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {

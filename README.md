@@ -44,6 +44,7 @@ Passez ces variables d'environnement au Pod de l'opérateur KubeDoctor pour le c
 | `LLM_API_KEY` | La clé d'API de votre fournisseur d'IA. Inutile si vous hébergez un modèle localement sans authentification. | *Vide* |
 | `LLM_API_URL` | L'URL exacte du point de terminaison de l'API. C'est ce qui vous permet de pointer vers Mistral (`https://api.mistral.ai/v1/chat/completions`), un proxy LiteLLM, ou Ollama. | `http://ollama.kubedoctor-system...` |
 | `LLM_MODEL` | Le nom du modèle que l'IA doit exécuter (ex: `gpt-4o`, `claude-3-opus-20240229`, `mistral-large-latest`, `llama3`). | `llama3` |
+| `LANGUAGE` | La langue des diagnostics locaux, des requêtes IA et de l'interface du Dashboard (`en` ou `fr`). | `en` |
 
 ### 🤖 Option 1 : Utilisation d'une IA 100% Gratuite et Locale (Ollama)
 KubeDoctor est configuré **par défaut** pour requêter une instance locale d'Ollama (sans clé d'API) afin de garantir la confidentialité absolue de vos données et éviter les coûts liés à OpenAI.
@@ -76,6 +77,7 @@ Passez ces variables d'environnement au conteneur hébergeant l'interface web.
 | `DASHBOARD_PORT` | Le port d'écoute du serveur web Go. | `8082` |
 | `DASHBOARD_TITLE` | Le titre principal affiché en haut de la page et dans l'onglet du navigateur. | `KubeDoctor Dashboard` |
 | `DASHBOARD_REFRESH_RATE_SECONDS` | Fréquence (en secondes) d'auto-actualisation de la page HTML. Laissez vide pour désactiver le rafraîchissement automatique. | `30` |
+| `LANGUAGE` | Modifie la langue de l'interface (ex: `fr` pour passer l'interface en français). | `en` |
 
 ---
 
