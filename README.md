@@ -126,6 +126,73 @@ Vous pourrez ensuite y accéder sur `http://localhost:8082` (ou via le port déf
 
 ---
 
+## 🚀 CI/CD & Pipeline GKE (GitHub Actions)
+
+KubeDoctor inclut un pipeline de déploiement continu automatisé vers **Google Kubernetes Engine (GKE)** utilisant l'authentification **Workload Identity Federation (WIF)** pour une sécurité maximale (aucune clé de compte de service n'est stockée dans GitHub).
+
+### 🔐 Configuration de l'Infrastructure GCP (Setup)
+
+Avant que le pipeline ne puisse fonctionner, un administrateur doit configurer les ressources suivantes sur Google Cloud :
+
+#### 1. Création du Pool et du Provider Workload Identity
+```bash
+# Remplacer les variables par vos valeurs
+export PROJECT_ID="votre-projet"
+export REPO="rizvane/KubeDoctor" # Format: utilisateur/repo
+
+# Créer le pool d'identité
+gcloud iam workload-identity-pools create "github-pool" \
+    --project="${PROJECT_ID}" --location="global" \
+    --display-name="GitHub Actions Pool"
+
+# Créer le fournisseur (provider) lié au repo GitHub
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+    --project="${PROJECT_ID}" --location="global" \
+    --workload-identity-pool="github-pool" \
+    --display-name="GitHub Actions Provider" \
+    --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+    --issuer-uri="https://token.actions.githubusercontent.com" \
+    --attribute-condition="assertion.repository=='${REPO}'"
+```
+
+#### 2. Configuration du Compte de Service (SA)
+```bash
+# Créer le compte de service pour le pipeline
+gcloud iam service-accounts create "github-deploy-sa" --project="${PROJECT_ID}"
+
+# Autoriser WIF à se connecter au compte de service
+gcloud iam service-accounts add-iam-policy-binding "github-deploy-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --project="${PROJECT_ID}" \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principalSet://iam.googleapis.com/projects/$(gcloud projects describe ${PROJECT_ID} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-pool/attribute.repository/${REPO}"
+
+# Ajouter les permissions nécessaires au compte de service
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:github-deploy-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/artifactregistry.writer"
+
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:github-deploy-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/container.developer"
+```
+
+### 🔑 Configuration des Secrets & Variables GitHub
+
+Dans les paramètres de votre dépôt GitHub (**Settings > Secrets and variables > Actions**), ajoutez les éléments suivants :
+
+**Variables (Variables tab) :**
+- `GCP_PROJECT` : ID de votre projet GCP.
+- `GCP_REGION` : Région de l'Artifact Registry (ex: `europe-west1`).
+- `AR_REPO` : Nom du dépôt Artifact Registry (Docker).
+- `GKE_CLUSTER` : Nom de votre cluster GKE.
+- `GKE_LOCATION` : Zone ou région de votre cluster GKE (ex: `europe-west1-b`).
+
+**Secrets (Secrets tab) :**
+- `WIF_PROVIDER` : Nom complet du fournisseur WIF (ex: `projects/<NUMBER>/locations/global/workloadIdentityPools/github-pool/providers/github-provider`).
+- `WIF_SERVICE_ACCOUNT` : Email du compte de service créé (ex: `github-deploy-sa@<PROJECT>.iam.gserviceaccount.com`).
+
+---
+
 ## 🧠 Détails du Moteur de Remédiation (Heuristiques Locales)
 
 Même sans aucune clé d'API LLM configurée, KubeDoctor diagnostiquera :
