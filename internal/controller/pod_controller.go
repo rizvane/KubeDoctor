@@ -90,6 +90,12 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				logs = "Failed to fetch logs: " + err.Error()
 			}
 
+			// Truncate logs to prevent Etcd size limit issues (Etcd limit is 1MB/object, so 2000 chars is safe)
+			maxLogLength := 2000
+			if len(logs) > maxLogLength {
+				logs = logs[len(logs)-maxLogLength:] + "\n... [LOGS TRUNCATED FOR SAFETY] ..."
+			}
+
 			// Generate Recommendation
 			recommendation := GenerateRecommendation(logs, reason)
 
@@ -137,6 +143,9 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 
 			log.Info("Successfully created DiagnosticReport", "Name", reportName)
+
+			// Increment the custom Prometheus metric
+			errorsDetectedTotal.WithLabelValues(reason).Inc()
 		}
 	}
 
