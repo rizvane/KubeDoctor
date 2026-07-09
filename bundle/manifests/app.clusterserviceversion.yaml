@@ -21,10 +21,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2026-07-09T07:25:34Z"
+    createdAt: "2026-07-09T11:57:58Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: app.v0.0.1
+  name: app.v0.2.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -236,4 +236,4 @@ spec:
   provider:
     name: Provider Name
     url: https://your.domain
-  version: 0.0.1
+  version: 0.2.0
