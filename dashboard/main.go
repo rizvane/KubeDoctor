@@ -35,6 +35,12 @@ type Report struct {
 	CreationTime   string
 }
 
+// DashboardConfig holds the configuration for the UI
+type DashboardConfig struct {
+	Title       string
+	RefreshRate string
+}
+
 func main() {
 	config, err := getKubeConfig()
 	if err != nil {
@@ -46,12 +52,21 @@ func main() {
 		log.Fatalf("Error creating dynamic client: %s", err.Error())
 	}
 
+	port := os.Getenv("DASHBOARD_PORT")
+	if port == "" {
+		port = "8082"
+	}
+
+	// Serve static assets (like the logo)
+	fs := http.FileServer(http.Dir("dashboard/assets"))
+	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		handleDashboard(w, r, client)
 	})
 
-	log.Println("Starting KubeDoctor Dashboard on :8082")
-	if err := http.ListenAndServe(":8082", nil); err != nil {
+	log.Printf("Starting KubeDoctor Dashboard on :%s\n", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
@@ -92,7 +107,20 @@ func handleDashboard(w http.ResponseWriter, r *http.Request, client dynamic.Inte
 		return
 	}
 
-	if err := tmpl.Execute(w, reports); err != nil {
+	uiConfig := DashboardConfig{
+		Title:       getEnvOrDefault("DASHBOARD_TITLE", "KubeDoctor Dashboard"),
+		RefreshRate: getEnvOrDefault("DASHBOARD_REFRESH_RATE_SECONDS", "30"),
+	}
+
+	data := struct {
+		Config  DashboardConfig
+		Reports []Report
+	}{
+		Config:  uiConfig,
+		Reports: reports,
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Failed to execute template: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -104,6 +132,14 @@ func getString(m map[string]interface{}, key string) string {
 		}
 	}
 	return ""
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultValue
+	}
+	return val
 }
 
 func getKubeConfig() (*rest.Config, error) {

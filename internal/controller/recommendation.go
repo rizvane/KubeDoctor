@@ -141,11 +141,24 @@ spec:
 	return "No specific automated recommendation available. Please analyze the provided logs manually or configure OPENAI_API_KEY for AI-driven insights."
 }
 
-// askLLMForRecommendation sends anonymized logs to an LLM for analysis if OPENAI_API_KEY is set.
+// askLLMForRecommendation sends anonymized logs to an LLM for analysis if OPENAI_API_KEY or LLM_API_KEY is set.
 func askLLMForRecommendation(logs string, reason string) string {
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	apiKey := os.Getenv("LLM_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	}
 	if apiKey == "" {
 		return ""
+	}
+
+	llmURL := os.Getenv("LLM_API_URL")
+	if llmURL == "" {
+		llmURL = "https://api.openai.com/v1/chat/completions" // Default to OpenAI
+	}
+
+	llmModel := os.Getenv("LLM_MODEL")
+	if llmModel == "" {
+		llmModel = "gpt-4" // Default model
 	}
 
 	// Anonymize logs before sending them to the LLM to prevent leaking sensitive data
@@ -154,7 +167,7 @@ func askLLMForRecommendation(logs string, reason string) string {
 	prompt := fmt.Sprintf("Act as an expert Kubernetes architect. Analyze the following Kubernetes error logs and provide a detailed recommendation on how to fix it, including a specific Kubernetes YAML patch example if applicable.\nReason: %s\nLogs:\n%s", reason, anonymizedLogs)
 
 	requestBody, err := json.Marshal(map[string]interface{}{
-		"model": "gpt-4",
+		"model": llmModel,
 		"messages": []map[string]string{
 			{"role": "system", "content": "You are a Kubernetes expert. Provide concise, actionable advice for fixing cluster issues based on logs. Provide correct YAML patches if appropriate."},
 			{"role": "user", "content": prompt},
@@ -165,7 +178,7 @@ func askLLMForRecommendation(logs string, reason string) string {
 		return ""
 	}
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", llmURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return ""
 	}
