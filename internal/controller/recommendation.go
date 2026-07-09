@@ -141,24 +141,19 @@ spec:
 	return "No specific automated recommendation available. Please analyze the provided logs manually or configure OPENAI_API_KEY for AI-driven insights."
 }
 
-// askLLMForRecommendation sends anonymized logs to an LLM for analysis if OPENAI_API_KEY or LLM_API_KEY is set.
+// askLLMForRecommendation sends anonymized logs to an LLM for analysis.
+// If using a local model like Ollama, an API key is often not required.
 func askLLMForRecommendation(logs string, reason string) string {
-	apiKey := os.Getenv("LLM_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if apiKey == "" {
-		return ""
-	}
-
 	llmURL := os.Getenv("LLM_API_URL")
 	if llmURL == "" {
-		llmURL = "https://api.openai.com/v1/chat/completions" // Default to OpenAI
+		// Default to a local, in-cluster Ollama instance
+		llmURL = "http://ollama.kubedoctor-system.svc.cluster.local:11434/v1/chat/completions"
 	}
 
 	llmModel := os.Getenv("LLM_MODEL")
 	if llmModel == "" {
-		llmModel = "gpt-4" // Default model
+		// Default to a free, local model
+		llmModel = "llama3"
 	}
 
 	// Anonymize logs before sending them to the LLM to prevent leaking sensitive data
@@ -183,7 +178,15 @@ func askLLMForRecommendation(logs string, reason string) string {
 		return ""
 	}
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	// Add Authorization header only if an API key is provided
+	apiKey := os.Getenv("LLM_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}

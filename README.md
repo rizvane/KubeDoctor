@@ -32,15 +32,41 @@ Il s'intègre également parfaitement avec OpenAI (ou d'autres LLM via API) en t
 
 KubeDoctor et son Dashboard sont hautement configurables afin de s'intégrer à n'importe quel environnement ou fournisseur d'IA (OpenAI, Ollama, serveurs locaux compatibles OpenAI, etc.).
 
-### Configuration de l'Opérateur (Moteur d'IA)
-Passez ces variables d'environnement au Pod de l'opérateur KubeDoctor (via ConfigMap, Secret, ou variables directes).
+### Configuration de l'Opérateur (Connecteur d'IA Universel)
+KubeDoctor est conçu pour être **100% agnostique** vis-à-vis du fournisseur d'Intelligence Artificielle. Il communique via le standard de facto de l'industrie (le format de requêtes OpenAI `chat/completions`).
+
+**Vous êtes totalement autonome** : vous pouvez brancher OpenAI, Anthropic Claude, Google Gemini, Mistral, des LLMs Chinois (DeepSeek, Qwen) ou n'importe quel modèle open-source, soit directement si leur API est compatible, soit en utilisant un routeur universel gratuit comme **LiteLLM**.
+
+Passez ces variables d'environnement au Pod de l'opérateur KubeDoctor pour le configurer selon vos désirs :
 
 | Variable d'environnement | Description | Valeur par défaut |
 | :--- | :--- | :--- |
-| `LLM_API_KEY` | Clé d'API primaire pour votre fournisseur d'IA (ex: Ollama, LLM on-prem). | *Vide* |
-| `OPENAI_API_KEY` | Clé d'API de secours (utilisée si `LLM_API_KEY` est vide). Requis pour utiliser OpenAI. | *Vide* |
-| `LLM_API_URL` | Endpoint complet vers l'API de chat (compatible format OpenAI). Idéal pour configurer **Ollama** (`http://ollama-service:11434/v1/chat/completions`). | `https://api.openai.com/v1/chat/completions` |
-| `LLM_MODEL` | Nom du modèle à invoquer (ex: `gpt-3.5-turbo`, `gpt-4`, ou le nom de votre modèle local Ollama comme `llama3`). | `gpt-4` |
+| `LLM_API_KEY` | La clé d'API de votre fournisseur d'IA. Inutile si vous hébergez un modèle localement sans authentification. | *Vide* |
+| `LLM_API_URL` | L'URL exacte du point de terminaison de l'API. C'est ce qui vous permet de pointer vers Mistral (`https://api.mistral.ai/v1/chat/completions`), un proxy LiteLLM, ou Ollama. | `http://ollama.kubedoctor-system...` |
+| `LLM_MODEL` | Le nom du modèle que l'IA doit exécuter (ex: `gpt-4o`, `claude-3-opus-20240229`, `mistral-large-latest`, `llama3`). | `llama3` |
+
+### 🤖 Option 1 : Utilisation d'une IA 100% Gratuite et Locale (Ollama)
+KubeDoctor est configuré **par défaut** pour requêter une instance locale d'Ollama (sans clé d'API) afin de garantir la confidentialité absolue de vos données et éviter les coûts liés à OpenAI.
+
+Pour déployer Ollama directement dans votre cluster à côté de l'opérateur KubeDoctor, appliquez le manifest fourni :
+
+```bash
+kubectl apply -f config/ollama/ollama.yaml
+```
+
+*Note: Une fois Ollama démarré, vous devez télécharger le modèle (ex: `llama3`) dans son conteneur:*
+```bash
+kubectl exec -it -n kubedoctor-system deployment/ollama -- ollama pull llama3
+```
+Après cela, l'opérateur interrogera automatiquement ce service gratuit en cas d'erreur inconnue !
+
+### 🤖 Option 2 : Utilisation d'autres fournisseurs (Claude, Gemini, OpenAI, etc.)
+Si vous souhaitez utiliser l'API officielle d'OpenAI, définissez :
+* `LLM_API_KEY="sk-..."`
+* `LLM_API_URL="https://api.openai.com/v1/chat/completions"`
+* `LLM_MODEL="gpt-4o"`
+
+Pour connecter **n'importe quel autre modèle** (Claude, Gemini, etc.) n'utilisant pas le même standard de requête HTTP qu'OpenAI, nous vous recommandons de déployer le conteneur gratuit **[LiteLLM](https://github.com/BerriAI/litellm)** dans votre cluster. LiteLLM agira comme un traducteur universel. Il vous suffira alors de faire pointer `LLM_API_URL` vers votre proxy LiteLLM !
 
 ### Configuration du Dashboard (Interface Utilisateur)
 Passez ces variables d'environnement au conteneur hébergeant l'interface web.
