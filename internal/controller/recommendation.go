@@ -112,6 +112,109 @@ kubectl get configmap,secret -n <namespace>
 `
 	}
 
+	if strings.Contains(lowerLogs, "permission denied") {
+		return `Permission Denied error detected. The container process lacks the necessary privileges to access a file or execute a command.
+Recommendation:
+1. Verify the file system permissions where the container is trying to read/write.
+2. If using persistent volumes, ensure the 'fsGroup' matches the user running the process.
+
+💡 Corrective YAML Patch (Setting SecurityContext):
+---
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 1000 # Example: Change to the ID of the user needing access
+      containers:
+      - name: my-app
+        securityContext:
+          runAsUser: 1000
+`
+	}
+
+	if strings.Contains(lowerLogs, "no space left on device") {
+		return `No Space Left on Device error detected. The node's ephemeral storage or the container's volume is full.
+Recommendation:
+1. Check if the application is writing excessive logs or temp files.
+2. Set ephemeral-storage limits to prevent evicting the entire Node.
+
+💡 Corrective YAML Patch (Ephemeral Storage limits):
+---
+spec:
+  template:
+    spec:
+      containers:
+      - name: my-app
+        resources:
+          requests:
+            ephemeral-storage: "1Gi"
+          limits:
+            ephemeral-storage: "2Gi"
+`
+	}
+
+	if strings.Contains(lowerLogs, "exec format error") {
+		return `Exec Format Error detected. The container image was built for a different CPU architecture than the Node it's running on (e.g., ARM64 image on an AMD64 node).
+Recommendation:
+1. Rebuild the Docker image for the correct target architecture using 'docker buildx'.
+2. Or use nodeSelectors to ensure the Pod schedules only on matching architecture nodes.
+
+💡 Corrective YAML Patch (NodeSelector constraint):
+---
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64 # Force scheduling on ARM nodes
+`
+	}
+
+	if strings.Contains(lowerLogs, "java.lang.outofmemoryerror") {
+		return `Java OutOfMemoryError detected. This is a Heap Space crash, different from a Container OOMKilled (Exit 137).
+Recommendation: Increase the JVM max heap size to match the container's RAM limits.
+
+💡 Corrective YAML Patch (Adjusting JAVA_OPTS):
+---
+spec:
+  template:
+    spec:
+      containers:
+      - name: java-app
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1024m" # Ensure this is lower than resources.limits.memory
+`
+	}
+
+	if strings.Contains(lowerLogs, "lookup") && strings.Contains(lowerLogs, "no such host") {
+		return `DNS Resolution Timeout/Error detected. The Pod cannot resolve external or internal hostnames.
+Recommendation:
+1. Check if the CoreDNS pods in the 'kube-system' namespace are running correctly.
+2. Verify if a NetworkPolicy is blocking UDP port 53 traffic.
+`
+	}
+
+	if strings.Contains(lowerLogs, "exit code 143") {
+		return `Exit Code 143 (SIGTERM Timeout) detected. The application was asked to shut down gracefully but took too long and was forcefully killed.
+Recommendation: Increase the terminationGracePeriodSeconds if the application legitimately needs more time to clean up connections.
+
+💡 Corrective YAML Patch:
+---
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 60 # Default is 30. Increase as needed.
+`
+	}
+
+	if strings.Contains(lowerReason, "runcontainererror") || strings.Contains(lowerReason, "starterror") {
+		return `RunContainerError detected. The container failed to start completely.
+Recommendation:
+1. Verify the 'command' and 'args' defined in the Pod spec. The executable might not exist in the image path.
+2. Check if the Entrypoint script has execution (+x) permissions.
+`
+	}
+
 	if strings.Contains(lowerReason, "crashloopbackoff") {
 		return `CrashLoopBackOff detected. The application starts but crashes repeatedly.
 Recommendation:

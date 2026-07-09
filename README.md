@@ -128,9 +128,15 @@ Vous pourrez ensuite y accéder sur `http://localhost:8082` (ou via le port déf
 
 Même sans aucune clé d'API LLM configurée, KubeDoctor diagnostiquera :
 
-* **OOMKilled (Code 137)** : Propose un patch YAML pour ajuster les *Limits* / *Requests* de mémoire.
+* **OOMKilled (Code 137)** : Propose un patch YAML pour ajuster les *Limits* / *Requests* de mémoire du conteneur.
+* **Java OutOfMemoryError (Heap)** : Différencie le crash applicatif du crash conteneur et propose un ajustement de `-Xmx` via `JAVA_OPTS`.
 * **ImagePullBackOff** : Propose d'ajouter un *imagePullSecrets*.
-* **Connection Refused** : Conseille sur les *NetworkPolicies* et les ports des *Services*.
+* **Permission Denied** : Détecte les erreurs de droits système et propose un correctif complet de `securityContext` (`fsGroup` / `runAsUser`).
+* **No Space Left on Device** : Propose l'encadrement strict par la ressource `ephemeral-storage`.
+* **Exec Format Error** : Détecte les problèmes d'architecture croisée (ex: image ARM sur noeud AMD64) et propose un `nodeSelector` adapté.
+* **Exit Code 143 (SIGTERM)** : Indique que le Graceful Shutdown a échoué et propose d'augmenter le `terminationGracePeriodSeconds`.
+* **RunContainerError / StartError** : Indique un problème lié au point d'entrée (`command` ou `args`) ou aux permissions du script Entrypoint.
+* **Connection Refused & DNS Timeouts** : Conseille sur les *NetworkPolicies*, CoreDNS, et les ports des *Services*.
 * **CreateContainerConfigError** : Détecte les *ConfigMaps* ou *Secrets* manquants dans le namespace.
 
 ---
